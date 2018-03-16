@@ -8,8 +8,8 @@ use Composer\Composer;
 use Composer\Script\Event;
 use Composer\IO\IOInterface;
 use PHPUnit\Framework\TestCase;
-use Composer\Script\ScriptEvents;
 use Composer\Package\RootPackage;
+use Composer\Script\ScriptEvents;
 use Composer\Installer\PackageEvent;
 use Composer\Installer\PackageEvents;
 use Composer\Package\PackageInterface;
@@ -17,9 +17,8 @@ use Composer\Repository\RepositoryManager;
 use Composer\Installer\InstallationManager;
 use NathanDentzau\ComposerPatchesDev\Plugin;
 use Composer\Repository\WritableRepositoryInterface;
-use Composer\DependencyResolver\Operation\UninstallOperation;
-use Composer\DependencyResolver\Operation\OperationInterface;
 use Composer\DependencyResolver\Operation\InstallOperation;
+use Composer\DependencyResolver\Operation\UninstallOperation;
 
 class PluginTest extends TestCase
 {
@@ -28,7 +27,7 @@ class PluginTest extends TestCase
     protected $io;
 
     public function setUp(): void
-    {    
+    {
         $this->composer = $this->createMock(Composer::class);
 
         $localRepository = $this
@@ -75,42 +74,88 @@ class PluginTest extends TestCase
     /**
      * @dataProvider checkPatchesDataProvider
      */
-    public function testCheckPatches(
-        bool $isDevMode,
-        bool $patchingEnabled,
-        array $packagesToUninstall
-    ): void {
-        $installationManager = $this->createMock(InstallationManager::class);
-        $localRepository = $this
-            ->createMock(WritableRepositoryInterface::class);
+    public function testCheckPatches(bool $isDevMode, array $extra): void {
+        $this->composer
+            ->getPackage()
+            ->expects($this->once())
+            ->method('getExtra')
+            ->willReturn($extra);
 
-        foreach ($packagesToUninstall as $position => $package) {
-            $installationManager->expects($this->at($position))
-                ->method('uninstall')
-                ->with($localRepository, new UninstallOperation($package));
+        if ($isDevMode) {
+            $localRepository = $this->composer
+                ->getRepositoryManager()
+                ->getLocalRepository();
+            $localRepository
+                ->method('getPackages')
+                ->will($this->returnCallback(function (): array {
+                    $packages = [];
+
+                    foreach (['test/package', 'another/package'] as $name) {
+                        $package = $this->createMock(PackageInterface::class);
+                        $package
+                            ->method('getName')
+                            ->willReturn($name);
+
+                        $packages[] = $package;
+                    }
+
+                    return $packages;
+                }));
+
+            $packages = $extra['patches-dev'] ?? [];
+            $installationManager = $this->createMock(InstallationManager::class);
+            $position = 0;
+
+            foreach ($localRepository->getPackages() as $package) {
+                if (!in_array($package->getName(), $packages, true)) {
+                    continue;
+                }
+
+                $installationManager
+                    ->expects($this->at($position))
+                    ->method('uninstall')
+                    ->with(
+                        $composer->getRepositoryManager()->getLocalRepository(),
+                        new UninstallOperation($package)
+                    );
+            }
+
+            $this->composer
+                ->method('getInstallationManager')
+                ->willReturn($installationManager);
         }
 
-        $expectedCallCount = $isDevMode && $patchingEnabled
-            ? count($packagesToUninstall)
-            : 0;
-
-        $this->composer->expects($this->exactly($expectedCallCount))
-            ->method('getInstallationManager')
-            ->willReturn($installationManager);
-
         $event = $this->createMock(Event::class);
-
-        $event->expects($this->once())
+        $event
+            ->expects($this->once())
             ->method('isDevMode')
             ->willReturn($isDevMode);
 
-        $plugin = $this
-            ->createPluginMock()
-            ->setPackagesToUninstall($packagesToUninstall)
-            ->setComposerPatchesInstalled(true)
-            ->setPatchingEnabled(true);
+        $plugin = new Plugin();
         $plugin->activate($this->composer, $this->io);
         $plugin->checkPatches($event);
+    }
+
+    public function checkPatchesDataProvider(): array
+    {
+        return [
+            [
+                true,
+                [
+                    'patches-dev' => [
+                        'test/package' => '',
+                    ],
+                ],
+            ],
+            [
+                true,
+                [],
+            ],
+            [
+                false,
+                [],
+            ],
+        ];
     }
 
     /**
@@ -119,7 +164,8 @@ class PluginTest extends TestCase
     public function testPostInstall(bool $isDevMode): void
     {
         $event = $this->createMock(PackageEvent::class);
-        $event->expects($this->once())
+        $event
+            ->expects($this->once())
             ->method('isDevMode')
             ->willReturn($isDevMode);
 
@@ -127,35 +173,40 @@ class PluginTest extends TestCase
         $operation
             ->method('getPackage')
             ->willReturn(new class {
-                public function getName(): string 
+                public function getName(): string
                 {
                     return'test/package';
                 }
             });
-        $event->expects($this->exactly($isDevMode ? 1 : 0))
+        $event
+            ->expects($this->exactly($isDevMode ? 1 : 0))
             ->method('getOperation')
             ->willReturn($operation);
 
-        $plugin = $this
-            ->createPluginMock()
-            ->setPatchingEnabled(false);
+        $plugin = new Plugin();
         $plugin->activate($this->composer, $this->io);
         $plugin->postInstall($event);
+    }
+
+    public function postInstallDataProvider(): array
+    {
+        return [[true], [false]];
     }
 
     /**
      * @dataProvider grabPatchesDataProvider
      */
-    public function testGrabPatches(array $extra, array $expected): void 
+    public function testGrabPatches(array $extra, array $expected): void
     {
         $this->composer
             ->getPackage()
-            //->expects($this->exactly(2))
+            ->expects($this->once())
             ->method('getExtra')
             ->willReturn($extra);
 
         if (isset($extra['patches-dev'])) {
-            $this->io/*->expects($this->exactly(2))*/
+            $this->io
+                ->expects($this->once())
                 ->method('write')
                 ->with(
                     '<info>Gathering dev patches for root package.</info>'
@@ -163,149 +214,29 @@ class PluginTest extends TestCase
         }
 
         if (!empty($expected['exception'])) {
-            $this->expectException(\Exception::class);
+            $this->expectException($expected['exception']);
         }
 
-        $plugin = $this->createPluginMock();
-        $plugin->activate($this->composer, $this->io);
-
-        if (empty($expected['exception'])) {
-            $this->assertEquals($expected, $plugin->grabPatches());
-        }
-    }
-
-    /**
-     * @dataProvider getPackagesToUninstallDataProvider
-     */
-    public function testGetPackagesToUninstall(
-        bool $composerPatchesInstalled,
-        array $expects,
-        array $extra,
-        array $packages
-    ): void {
-        $this->composer
-            ->getPackage()
-            ->method('getExtra')
-            ->willReturn($extra);
-
-        $this->composer
-            ->getRepositoryManager()
-            ->getLocalRepository()
-            ->expects($this->once())
-            ->method('getPackages')
-            ->willReturn($packages);
-        
         $plugin = new class extends Plugin {
-            protected $composerPatchesInstalled = true;
-
-            public function setComposerPatchesInstalled(
-                bool $composerPatchesInstalled
-            ): self {
-                $this->composerPatchesInstalled = $composerPatchesInstalled;
+            public function setComposer(Composer $composer): self {
+                $this->composer = $composer;
                 return $this;
             }
 
-            protected function isComposerPatchesInstalled(): bool 
-            {
-                return $this->composerPatchesInstalled;
+            public function setIo(IOInterface $io): self {
+                $this->io = $io;
+                return $this;
             }
         };
-        $plugin->setComposerPatchesInstalled($composerPatchesInstalled);
-        $plugin->activate($this->composer, $this->io);
 
-        $packagesToUninstall = $plugin->getPackagesToUninstall();
-        $this->assertEquals($expects, $packagesToUninstall);
-    }
+        $plugin
+            ->setComposer($this->composer)
+            ->setIo($this->io);
+        $patches = $plugin->grabPatches();
 
-    /**
-     * @dataProvider isPatchingEnabledDataProvider
-     */
-    public function testIsPatchingEnabled(bool $expects, array $extra): void
-    {
-        $this->composer
-            ->getPackage()
-            ->expects($this->exactly(2))
-            ->method('getExtra')
-            ->willReturn($extra);
-
-        $plugin = new Plugin();
-        $plugin->activate($this->composer, $this->io);
-
-        $reflection = new \ReflectionMethod($plugin, 'isPatchingEnabled');
-        $reflection->setAccessible(true);
-
-        $isPatchingEnabled = $reflection->invoke($plugin, 'isPatchingEnabled');
-
-        $this->assertEquals($expects, $isPatchingEnabled);
-    }
-
-    public function testIsComposerPatchesInstall(): void
-    {
-        $this->composer
-            ->getPackage()
-            ->expects($this->once())
-            ->method('getRequires')
-            ->willReturn([
-                'cweagans/composer-patches' => '',
-                'drupal/core' => '',
-            ]);
-
-        $this->composer
-            ->getPackage()
-            ->expects($this->once())
-            ->method('getDevRequires')
-            ->willReturn([
-                'nathandentzau/composer-patches-dev',
-            ]);
-
-        $plugin = new Plugin();
-        $plugin->activate($this->composer, $this->io);
-
-        $reflection = new \ReflectionMethod(
-            $plugin,
-            'isComposerPatchesInstalled'
-        );
-        $reflection->setAccessible(true);
-
-        $isComposerPatchesInstalled = $reflection->invoke(
-            $plugin,
-            'isComposerPatchesInstalled'
-        );
-        $this->assertTrue($isComposerPatchesInstalled);
-    }
-
-    public function checkPatchesDataProvider(): array
-    {
-        return [
-            [
-                true, // Dev mode.
-                true, // Patching enabled.
-                // Packages to uninstall.
-                [
-                    $this->createMock(PackageInterface::class),
-                ],
-            ],
-            [
-                true, // Dev mode.
-                true, // Patching enabled.
-                [], // Packages to uninstall.
-            ],
-            [
-                false, // Dev mode.
-                true, // Patching enabled.
-                [], // Packages to uninstall.
-            ],
-            [
-                true, // Dev mode.
-                false, // Patching enabled.
-                [], // Packages to uninstall.
-            ],
-        ];
-    }
-
-    public function postInstallDataProvider(): array
-    {
-        return [[true], [false]];
+        if (empty($expected['exception'])) {
+            $this->assertEquals($expected, $patches);
+        }
     }
 
     public function grabPatchesDataProvider(): array
@@ -348,141 +279,5 @@ class PluginTest extends TestCase
                 ],
             ],
         ];
-    }
-
-    public function getPackagesToUninstallDataProvider(): array
-    {
-        $testPackage = $this->createMock(PackageInterface::class);
-        $testPackage
-            ->method('getName')
-            ->willReturn('test/package');
-        $anotherPackage = $this->createMock(PackageInterface::class);
-        $anotherPackage
-            ->method('getName')
-            ->willReturn('another/package');
-        
-        return [
-            [
-                true,
-                [
-                    $testPackage,
-                ],
-                [
-                    'patches-dev' => [
-                        'test/package' => '',
-                    ],
-                ],
-                [
-                    $testPackage,
-                    $anotherPackage,
-                ],
-            ],
-            [
-                true,
-                [],
-                [
-                    'patches' => [
-                        'test/package' => '',
-                    ],
-                    'patches-dev' => [
-                        'test/package' => '',
-                    ],
-                ],
-                [
-                    $testPackage,
-                    $anotherPackage,
-                ],
-            ],
-            [
-                true,
-                [],
-                [],
-                [],
-            ],
-            [
-                false,
-                [
-                    $testPackage,
-                    $anotherPackage,
-                ],
-                [
-                    'patches-dev' => [
-                        'test/package' => '',
-                        'another/package' => '',
-                    ],
-                ],
-                [
-                    $testPackage,
-                    $anotherPackage,
-                ],
-            ],
-            [
-                false,
-                [],
-                [],
-                [],
-            ]
-        ];
-    }
-
-    public function isPatchingEnabledDataProvider(): array
-    {
-        return [
-            [
-                true,
-                [
-                    'patches-dev' => [
-                        'test/package' => '',
-                    ],
-                ],
-            ],
-            [
-                false,
-                [],
-            ],
-        ];
-    }
-    
-    protected function createPluginMock(): Plugin
-    {
-        return new class extends Plugin {
-            protected $packages = [];
-            protected $patchingEnabled = true;
-            protected $composerPatchesInstalled = true;
-
-            public function getPackagesToUninstall(): array
-            {
-                return $this->packages;
-            }
-
-            public function setPackagesToUninstall(array $packages): self
-            {
-                $this->packages = $packages;
-                return $this;
-            }
-
-            public function setPatchingEnabled(bool $patchingEnabled): self
-            {
-                $this->patchingEnabled = $patchingEnabled;
-                return $this;
-            }
-
-            public function setComposerPatchesInstalled(
-                bool $composerPatchesInstalled
-            ): self {
-                $this->composerPatchesInstalled = $composerPatchesInstalled;
-                return $this;
-            }
-
-            protected function isPatchingEnabled() 
-            {
-                return $this->patchingEnabled;
-            }
-
-            protected function isComposerPatchesInstalled(): bool 
-            {
-                return $this->composerPatchesInstalled;
-            }
-        };
     }
 }

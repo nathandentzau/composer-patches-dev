@@ -50,11 +50,20 @@ class Plugin extends PatchesPluginBase
             return;
         }
 
-        foreach ($this->getPackagesToUninstall() as $package) {
+        $packagesToUninstall = array_keys($this->patches);
+        $localRepository = $this->composer
+            ->getRepositoryManager()
+            ->getLocalRepository();
+
+        foreach ($localRepository->getPackages() as $package) {
+            if (!in_array($package->getName(), $packagesToUninstall, true)) {
+                continue;
+            }
+
             $this->composer
                 ->getInstallationManager()
                 ->uninstall(
-                    $this->getLocalRepository(),
+                    $localRepository,
                     new UninstallOperation($package)
                 );
         }
@@ -63,7 +72,7 @@ class Plugin extends PatchesPluginBase
     /**
      * {@inheritdoc}
      */
-    public function postInstall(PackageEvent $event) 
+    public function postInstall(PackageEvent $event)
     {
         if (!$event->isDevMode()) {
             return;
@@ -77,7 +86,7 @@ class Plugin extends PatchesPluginBase
      */
     public function grabPatches()
     {
-        $extra = $this->getRootPackage()->getExtra();
+        $extra = $this->composer->getPackage()->getExtra();
         $patches = [];
 
         if (!empty($extra['patches-dev'])) {
@@ -95,83 +104,11 @@ class Plugin extends PatchesPluginBase
     }
 
     /**
-     * Get a list of packages to uninstall.
-     * 
-     * The list of packages is built from the patches defined in the 
-     * patches-dev array. If cweagans/composer-patches is installed, only the
-     * packages not defined in the patches array will be uninstalled.
-     *
-     * @return array
-     */
-    public function getPackagesToUninstall(): array
-    {
-        if ($this->isComposerPatchesInstalled()) {
-            $packagesToUninstall = array_diff(
-                array_keys($this->patches),
-                array_keys(parent::grabPatches())
-            );
-        } else {
-            $packagesToUninstall = array_keys($this->patches);
-        }
-
-        $packages = [];
-
-        foreach ($this->getLocalRepository()->getPackages() as $package) {
-            if (!in_array($package->getName(), $packagesToUninstall, true)) {
-                continue;
-            }
-
-            $packages[] = $package;
-        }
-
-        return $packages;
-    }
-
-    /**
      * {@inheritdoc}
      */
     protected function isPatchingEnabled()
     {
-        $extra = $this->getRootPackage()->getExtra();
-        return !empty($extra['patches-dev']);
-    }
-
-    /**
-     * Get Composer package repository.
-     *
-     * @return RepositoryInterface
-     */
-    protected function getLocalRepository(): RepositoryInterface
-    {
-        return $this->composer
-            ->getRepositoryManager()
-            ->getLocalRepository();
-    }
-
-    /**
-     * Get the composer root package object.
-     *
-     * @return RootPackage
-     */
-    protected function getRootPackage(): RootPackage
-    {
-        return $this->composer->getPackage();
-    }
-
-    /**
-     * Determine if cweagans/composer-patches package is installed.
-     *
-     * @return bool Whether cweagans/composer-patches is required by the root
-     *              compose file.
-     */
-    protected function isComposerPatchesInstalled(): bool 
-    {
-        $packages = array_merge(
-            array_keys($this->getRootPackage()->getRequires()), 
-            array_keys($this->getRootPackage()->getDevRequires())
-        );
-
-        return in_array('cweagans/composer-patches', $packages, true);
+        return !empty($this->patches);
     }
 
     /**
