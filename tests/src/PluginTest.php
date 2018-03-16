@@ -53,10 +53,10 @@ class PluginTest extends TestCase
     public function testGetSubscribedEvents(): void
     {
         $events = [
-            ScriptEvents::PRE_INSTALL_CMD => ['checkPatches', -100],
-            ScriptEvents::PRE_UPDATE_CMD => ['checkPatches', -100],
-            PackageEvents::POST_PACKAGE_INSTALL => ['postInstall', -100],
-            PackageEvents::POST_PACKAGE_UPDATE => ['postInstall', -100],
+            ScriptEvents::PRE_INSTALL_CMD => ['checkPatches', 100],
+            ScriptEvents::PRE_UPDATE_CMD => ['checkPatches', 100],
+            PackageEvents::POST_PACKAGE_INSTALL => ['postInstall', 100],
+            PackageEvents::POST_PACKAGE_UPDATE => ['postInstall', 100],
         ];
 
         $this->assertEquals(

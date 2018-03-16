@@ -22,13 +22,13 @@ class Plugin extends PatchesPluginBase
      */
     public static function getSubscribedEvents()
     {
-        // Set a low priority to ensure this plugin's events are triggered after
-        // cweagans/composer-patches.
+        // Set a high priority to ensure this plugin's events are triggered
+        // before cweagans/composer-patches.
         return [
-            ScriptEvents::PRE_INSTALL_CMD => ['checkPatches', -100],
-            ScriptEvents::PRE_UPDATE_CMD => ['checkPatches', -100],
-            PackageEvents::POST_PACKAGE_INSTALL => ['postInstall', -100],
-            PackageEvents::POST_PACKAGE_UPDATE => ['postInstall', -100],
+            ScriptEvents::PRE_INSTALL_CMD => ['checkPatches', 100],
+            ScriptEvents::PRE_UPDATE_CMD => ['checkPatches', 100],
+            PackageEvents::POST_PACKAGE_INSTALL => ['postInstall', 100],
+            PackageEvents::POST_PACKAGE_UPDATE => ['postInstall', 100],
         ];
     }
 
