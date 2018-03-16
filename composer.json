@@ -1,0 +1,37 @@
+{
+    "name": "nathandentzau/composer-patches-dev",
+    "description": "Patches composer packages only in dev mode",
+    "type": "composer-plugin",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Nathan Dentzau",
+            "email": "nathan.dentzau@gmail.com"
+        }
+    ],
+    "require": {
+        "php": ">=7.1.0",
+        "composer-plugin-api": "^1.1",
+        "cweagans/composer-patches": "^1.6"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^7.0",
+        "composer/composer": "^1.6"
+    },
+    "autoload": {
+        "psr-4": {
+            "NathanDentzau\\ComposerPatchesDev\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "NathanDentzau\\ComposerPatchesDev\\Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "test:php": "vendor/bin/phpunit -c phpunit.xml"
+    },
+    "extra": {
+        "class": "NathanDentzau\\ComposerPatchesDev\\Plugin"
+    }
+}
