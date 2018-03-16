@@ -1,7 +1,9 @@
 # Composer Patches Dev
 
+[![Build Status](https://travis-ci.org/nathandentzau/composer-patches-dev.svg?branch=master)](https://travis-ci.org/nathandentzau/composer-patches-dev)
+
 This composer plugin extends the [cweagans/composer-patches][] plugin to allow
-patches to be applied to packages when composer is in dev mode (without 
+patches to be applied to packages when composer is in dev mode (without
 `--no-dev` passed `composer install` or `composer update`). This is useful to
 patch certain packages locally and not in a production environment.
 
@@ -55,8 +57,10 @@ $ composer update --no-dev
         }
     ],
     "require": {
-        "nathandentzau/composer-patches-dev": "dev-master",
         "drupal/core": "8.5.0"
+    },
+    "require-dev": {
+        "nathandentzau/composer-patches-dev": "^1.0"
     },
     "extra": {
         "patches-dev": {
@@ -70,12 +74,12 @@ $ composer update --no-dev
 
 ## Error handling
 
-Please refer to the [error handling documentation] for 
+Please refer to the [error handling documentation] for
 [cweagans/composer-patches][].
 
 ## Why is this a seperate plugin?
 
-The [cweagans/composer-patches][] plugin is on a feature freeze for its current 
+The [cweagans/composer-patches][] plugin is on a feature freeze for its current
 stable version. The next version is actively being worked on by its
 maintainer. This feature will be merged into version 2.x of composer-patches
 when the time is right. After that this package will be discontinued.
