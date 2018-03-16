@@ -1,6 +1,6 @@
 {
     "name": "nathandentzau/composer-patches-dev",
-    "description": "Patches composer packages only in dev mode",
+    "description": "Apply patches to packages while Composer is in dev mode",
     "type": "composer-plugin",
     "license": "MIT",
     "authors": [
