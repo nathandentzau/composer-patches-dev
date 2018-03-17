@@ -1,6 +1,6 @@
 # Composer Patches Dev
 
-[![Build Status](https://travis-ci.org/nathandentzau/composer-patches-dev.svg?branch=master)](https://travis-ci.org/nathandentzau/composer-patches-dev)
+[![Build Status](https://travis-ci.org/nathandentzau/composer-patches-dev.svg?branch=master)](https://travis-ci.org/nathandentzau/composer-patches-dev) [![Coverage Status](https://coveralls.io/repos/github/nathandentzau/composer-patches-dev/badge.svg?branch=%1B%5B32mmaster%1B%5Bm)](https://coveralls.io/github/nathandentzau/composer-patches-dev?branch=%1B%5B32mmaster%1B%5Bm)
 
 This composer plugin extends the [cweagans/composer-patches][] plugin to allow
 patches to be applied to packages when composer is in dev mode (without

@@ -6,7 +6,6 @@ php:
 
 install:
   - composer install
-  - composer require satooshi/php-coveralls
 
 script:
   - composer test:php
